@@ -53,9 +53,11 @@ jobs:
         EOF
 
     - name: Commit README file
+      env:
+        ACTIONS_PAT: ${{ secrets.ACTIONS_PAT }}
       run: |
         git config --global user.name 'github-actions'
         git config --global user.email 'github-actions@github.com'
         git add README.md
         git commit -m "Generated README for ${{ steps.fetch-repo.outputs.repo }}"
-        git push
+        git push https://MakendranG:${{ secrets.ACTIONS_PAT }}@github.com/MakendranG/readme-generator.git

@@ -1,0 +1,61 @@
+name: Generate README
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  generate-readme:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Extract repository URL from issue
+      id: extract-url
+      run: |
+        echo "::set-output name=repo_url::$(echo ${{ github.event.issue.body }} | grep -o 'https://github.com/[a-zA-Z0-9_\-]*/[a-zA-Z0-9_\-]*')"
+
+    - name: Fetch repository details
+      id: fetch-repo
+      run: |
+        REPO_URL=${{ steps.extract-url.outputs.repo_url }}
+        OWNER=$(echo $REPO_URL | cut -d'/' -f4)
+        REPO=$(echo $REPO_URL | cut -d'/' -f5)
+        curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/$OWNER/$REPO" > repo.json
+        echo "::set-output name=owner::$OWNER"
+        echo "::set-output name=repo::$REPO"
+
+    - name: Generate README content
+      id: generate-readme
+      run: |
+        OWNER=${{ steps.fetch-repo.outputs.owner }}
+        REPO=${{ steps.fetch-repo.outputs.repo }}
+        DESCRIPTION=$(jq -r '.description' repo.json)
+        STARS=$(jq -r '.stargazers_count' repo.json)
+        FORKS=$(jq -r '.forks_count' repo.json)
+        
+        cat <<EOF > README.md
+        # $REPO
+
+        ## Description
+        $DESCRIPTION
+
+        ## Owner
+        $OWNER
+
+        ## Stars
+        $STARS
+
+        ## Forks
+        $FORKS
+        EOF
+
+    - name: Commit README file
+      run: |
+        git config --global user.name 'github-actions'
+        git config --global user.email 'github-actions@github.com'
+        git add README.md
+        git commit -m "Generated README for ${{ steps.fetch-repo.outputs.repo }}"
+        git push
